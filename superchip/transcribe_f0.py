@@ -21,12 +21,14 @@ TASK_INDICES = {
 BINS_PER_OCTAVE = 60
 N_OCTAVES = 6
 HARMONICS = [1, 2, 3, 4, 5]
-SR = 22050
 FMIN = 32.7
-HOP_LENGTH = 256
+# SR = 22050
+# HOP_LENGTH = 256
+SR = 44100
+HOP_LENGTH = 512
 
 
-def compute_hcqt(audio_fpath):
+def compute_hcqt(audio_fpath=None, y=None, fs=None):
     """Compute the harmonic CQT from a given audio file
 
     Parameters
@@ -44,7 +46,11 @@ def compute_hcqt(audio_fpath):
         List of frequency values in Hz
 
     """
-    y, fs = librosa.load(audio_fpath, sr=SR)
+    if y is None:
+        y, fs = librosa.load(audio_fpath, sr=SR)
+    else:
+        y = librosa.resample(y, fs, SR)
+        fs = SR
 
     cqt_list = []
     shapes = []
@@ -74,6 +80,61 @@ def compute_hcqt(audio_fpath):
 
     time_grid = librosa.core.frames_to_time(
         range(log_hcqt.shape[2]), sr=SR, hop_length=HOP_LENGTH
+    )
+
+    return log_hcqt, freq_grid, time_grid
+
+
+def interp_hcqt(audio_fpath=None, y=None, fs=None):
+    """Compute the harmonic CQT from a given audio file
+
+    Parameters
+    ----------
+    audio_fpath : str
+        path to audio file
+
+    Returns
+    -------
+    hcqt : np.ndarray
+        Harmonic cqt
+    time_grid : np.ndarray
+        List of time stamps in seconds
+    freq_grid : np.ndarray
+        List of frequency values in Hz
+
+    """
+    if y is None:
+        y, fs = librosa.load(audio_fpath, sr=SR)
+    else:
+        y = librosa.resample(y, fs, SR)
+        fs = SR
+
+    # How many bins do we need?
+    # n_bins_max = 2**(ceil(log2(max(HARMONICS))) * BPO + n_bins)
+    n_bins_plane = N_OCTAVES * BINS_PER_OCTAVE
+
+    n_bins_master = int(np.ceil(np.log2(np.max(HARMONICS))) * BINS_PER_OCTAVE) + n_bins_plane
+
+    cqt_master = np.abs(librosa.cqt(y=y, sr=fs,
+                                    fmin=FMIN,
+                                    n_bins=n_bins_master,
+                                    bins_per_octave=BINS_PER_OCTAVE))
+
+    freq_grid = librosa.cqt_frequencies(N_OCTAVES * BINS_PER_OCTAVE,
+                                        FMIN,
+                                        bins_per_octave=BINS_PER_OCTAVE)
+
+    freq_master = librosa.cqt_frequencies(n_bins_master, FMIN,
+                                          bins_per_octave=BINS_PER_OCTAVE)
+
+    hcqt = librosa.interp_harmonics(cqt_master,
+                                    freq_master,
+                                    HARMONICS)[:, :N_OCTAVES * BINS_PER_OCTAVE]
+
+    log_hcqt = ((1.0/80.0) * librosa.core.amplitude_to_db(hcqt, ref=np.max)) + 1.0
+
+    time_grid = librosa.core.frames_to_time(
+        np.arange(log_hcqt.shape[-1]), sr=SR, hop_length=HOP_LENGTH
     )
 
     return log_hcqt, freq_grid, time_grid
@@ -352,7 +413,8 @@ def run(audio_fpath):
         salience numpy arrays as values.
     """
     print("Computing HCQT...")
-    hcqt, freq_grid, time_grid = compute_hcqt(audio_fpath)
+    # hcqt, freq_grid, time_grid = compute_hcqt(audio_fpath)
+    hcqt, freq_grid, time_grid = interp_hcqt(audio_fpath)
 
     print("Predicting output...")
     salience_dict = compute_output(hcqt, time_grid, freq_grid)
