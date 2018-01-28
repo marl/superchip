@@ -5,6 +5,7 @@ import mir_eval
 import scipy
 import librosa
 
+SR_OUT = 8000
 
 def remove_salience_noise(salience):
     """Remove noise from the salience representation by removing non-peaks
@@ -35,7 +36,7 @@ def get_single_f0(salience, time_grid, freq_grid):
     salience : np.ndarray
         Salience representation
     time_grid : np.array
-        
+
     """
     max_idx = np.argmax(salience, axis=0)
     est_freqs = []
@@ -69,22 +70,26 @@ def sonify(time_grid, freq_grid, salience_dictionary, use_contours=True):
         _, mel_f0, mel_f0_amp = get_single_f0(
             salience_dictionary['melody'], time_grid, freq_grid)
         y_mel = mir_eval.sonify.pitch_contour(
-            time_grid, mel_f0, 8000, amplitudes=mel_f0_amp,
+            time_grid, mel_f0, SR_OUT, amplitudes=mel_f0_amp,
             function=scipy.signal.square)
     else:
         melody = remove_salience_noise(salience_dictionary['melody'])
         y_mel = mir_eval.sonify.time_frequency(
-            melody[:, :], freq_grid[:], time_grid, 8000,
+            melody[:, :], freq_grid[:], time_grid, SR_OUT,
             function=scipy.signal.square)
 
     print("bass...")
     if use_contours:
         _, bass_f0, bass_f0_amp = get_single_f0(bass, time_grid, freq_grid)
         y_bass = mir_eval.sonify.pitch_contour(
-            time_grid, bass_f0, 8000, amplitudes=bass_f0_amp, function=nes_triangle)
+            time_grid, bass_f0, SR_OUT, amplitudes=bass_f0_amp,
+            function=nes_triangle)
     else:
         y_bass = mir_eval.sonify.time_frequency(
-            bass, freq_grid, time_grid, 8000, function=nes_triangle)
+            bass, freq_grid, time_grid, SR_OUT, function=nes_triangle)
+
+    y_mel = librosa.util.normalize(y_mel, norm=np.inf, axis=None)
+    y_bass = librosa.util.normalize(y_bass, norm=np.inf, axis=None)
 
     y_chip = np.zeros((np.max([len(y_mel), len(y_bass)]), ))
     y_chip[:len(y_mel)] += y_mel
