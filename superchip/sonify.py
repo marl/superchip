@@ -48,6 +48,13 @@ def get_single_f0(salience, time_grid, freq_grid):
     return time_grid, est_freqs, amps
 
 
+def triangle(*args, **kwargs):
+    '''Synthesize a triangle wave'''
+    v = scipy.signal.sawtooth(*args, **kwargs)
+
+    return 2 * np.abs(v) - 1.
+
+
 def nes_triangle(*args, **kwargs):
     '''Synthesize a quantized NES triangle'''
 
