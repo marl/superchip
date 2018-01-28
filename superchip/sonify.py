@@ -47,11 +47,16 @@ def get_single_f0(salience, time_grid, freq_grid):
     return time_grid, est_freqs, amps
 
 
-def triangle(*args, **kwargs):
-    '''Synthesize a triangle wave'''
-    v = scipy.signal.sawtooth(*args, **kwargs)
+def nes_triangle(*args, **kwargs):
+    '''Synthesize a quantized NES triangle'''
 
-    return 2 * np.abs(v) - 1.
+    # http://wiki.nesdev.com/w/index.php/APU_Triangle
+    # NES triangle is quantized to 16 values
+    w = triangle(*args, **kwargs)
+
+    qw = w - np.mod(w, 2./15)
+
+    return qw
 
 
 def sonify(time_grid, freq_grid, salience_dictionary, use_contours=True):
@@ -76,10 +81,10 @@ def sonify(time_grid, freq_grid, salience_dictionary, use_contours=True):
     if use_contours:
         _, bass_f0, bass_f0_amp = get_single_f0(bass, time_grid, freq_grid)
         y_bass = mir_eval.sonify.pitch_contour(
-            time_grid, bass_f0, 8000, amplitudes=bass_f0_amp, function=triangle)
+            time_grid, bass_f0, 8000, amplitudes=bass_f0_amp, function=nes_triangle)
     else:
         y_bass = mir_eval.sonify.time_frequency(
-            bass, freq_grid, time_grid, 8000, function=triangle)
+            bass, freq_grid, time_grid, 8000, function=nes_triangle)
 
     y_chip = np.zeros((np.max([len(y_mel), len(y_bass)]), ))
     y_chip[:len(y_mel)] += y_mel
