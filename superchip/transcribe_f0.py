@@ -116,6 +116,7 @@ def interp_hcqt(audio_fpath=None, y=None, fs=None):
     n_bins_master = int(np.ceil(np.log2(np.max(HARMONICS))) * BINS_PER_OCTAVE) + n_bins_plane
 
     cqt_master = np.abs(librosa.cqt(y=y, sr=fs,
+                                    hop_length=HOP_LENGTH,
                                     fmin=FMIN,
                                     n_bins=n_bins_master,
                                     bins_per_octave=BINS_PER_OCTAVE))
